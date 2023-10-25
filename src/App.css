@@ -16,21 +16,21 @@ body {
 .option-box select {
   width: 100%;
   padding: 10px;
-  border: 1px solid #3b3b3b;
+  border: 1px solid #dadada;
   border-radius: 5px;
   background-color: #00000080;
   color: #ffffff;
 }
 .option-box select:focus {
   outline: none;
-  border: 1px solid #3b3b3b;
+  border: 1px solid #dadada;
 }
 
 /* Style the button element */
 .option-box button {
   background-color: #00000080;
   color: #ffffff;
-  border: 1px solid #3b3b3b;
+  border: 1px solid #dadada;
   border-radius: 5px;
   padding: 5px 10px; 
   margin-top: 7px; 
