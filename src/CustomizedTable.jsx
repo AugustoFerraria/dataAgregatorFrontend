@@ -62,4 +62,3 @@ function CustomizedTable({ data }) {
 }
 
 export default CustomizedTable;
-
