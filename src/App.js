@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
-import { Grid, TablePagination } from '@mui/material';
-import CustomizedTable from './CustomizedTable';
+import { AgGridReact } from 'ag-grid-react';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
 
 function App() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [rowData, setRowData] = useState([]);
   const [selectedAction, setSelectedAction] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchClicked, setSearchClicked] = useState(false);
+  const [error, setError] = useState(null);
+  const [rowsPerPage, setRowsPerPage] = useState(100);
 
   const endpointMap = useMemo(() => {
     return {
@@ -27,60 +27,78 @@ function App() {
     };
   }, []);
 
+  const columnDefs = useMemo(() => [
+    { headerName: 'Comune', field: 'comune' },
+    { headerName: 'Prima dose', field: 'dose1' },
+    { headerName: 'Seconda dose', field: 'dose2' },
+    { headerName: 'Booster', field: 'booster' },
+    { headerName: 'Richiamo', field: 'richiamo' },
+  ], []);
+
   const handleActionChange = (e) => {
     setSelectedAction(e.target.value);
-  };
-
-  const fetchData = () => {
-    if (selectedAction) {
-      setLoading(true);
-      const endpoint = endpointMap[selectedAction];
-  
-      fetch(`http://localhost:8081/api/${endpoint}`)
-        .then((response) => {
-          if (response.headers.get('content-type').includes('application/json')) {
-            return response.json();
-          } else {
-            return response.text();
-          }
-        })
-        .then((jsonData) => {
-          // Convertir a un array si es un valor único
-          let dataArray;
-          if (typeof jsonData === 'object' && !Array.isArray(jsonData)) {
-            dataArray = [jsonData];
-          } else {
-            dataArray = jsonData;
-          }
-          setData(dataArray);
-          setLoading(false);
-        })
-        .catch((error) => {
-          console.error('Error fetching data:', error);
-          setLoading(false);
-        });
-    }
   };
 
   const handleSearchClick = () => {
     setSearchClicked(true);
   };
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   useEffect(() => {
     if (searchClicked) {
-      fetchData();
-      setSearchClicked(false); // Restablecer el estado para futuras búsquedas
+      setError(null);
+
+      const endpoint = endpointMap[selectedAction];
+
+      fetch(`http://localhost:8081/api/${endpoint}`)
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else {
+            throw new Error(`HTTP Error: ${response.status}`);
+          }
+        })
+        .then((jsonData) => {
+          let data = [];
+
+          if (selectedAction === 'Get Totale prima dose') {
+            data = [
+              {
+                comune: 'All',
+                dose1: jsonData,
+                dose2: null,
+                booster: null,
+                richiamo: null,
+              },
+            ];
+          } else if (selectedAction === 'Get Totale seconda dose') {
+            data = [
+              {
+                comune: 'All',
+                dose1: null,
+                dose2: jsonData,
+                booster: null,
+                richiamo: null,
+              },
+            ];
+          } else {
+            // Ensure jsonData is an array
+            data = Array.isArray(jsonData) ? jsonData : [jsonData];
+          }
+
+          setRowData(data);
+        })
+        .catch((error) => {
+          console.error('Error fetching data:', error);
+          setError('Error fetching data. Please try again.');
+        });
+
+      setSearchClicked(false);
     }
-  }, [searchClicked, fetchData]);
+  }, [searchClicked, selectedAction, endpointMap]);
+
+  const handleRowsPerPageChange = (e) => {
+    setRowsPerPage(parseInt(e.target.value, 10));
+  };
 
   return (
     <div>
@@ -95,34 +113,37 @@ function App() {
         </select>
         <button onClick={handleSearchClick}>Search</button>
       </div>
-      <Grid container>
-        <Grid item xs={12}>
-          {loading ? <p>Loading...</p> : null}
-          {Array.isArray(data) ? (
-            <CustomizedTable data={data.slice(page * rowsPerPage, (page + 1) * rowsPerPage)} />
-          ) : (
-            <div>
-              {typeof data === 'number' || typeof data === 'string' ? (
-                <p>Data: {data}</p>
-              ) : (
-                <p>No data to display.</p>
-              )}
-            </div>
-          )}
-        </Grid>
-        <Grid item xs={12}>
-          <TablePagination
-            component="div"
-            count={Array.isArray(data) ? data.length : 0}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Grid>
-      </Grid>
+      <div
+        className="ag-theme-alpine-dark"
+        style={{ height: '650px', width: '100%' }}
+      >
+        <AgGridReact
+          defaultColDef={{
+            flex: 1,
+            sortable: true,
+            filter: true,
+          }}
+          columnDefs={columnDefs}
+          rowData={rowData}
+          pagination={true}
+          paginationPageSize={rowsPerPage}
+          animateRows={true}
+        />
+      </div>
+      <div className="rows-per-page-select">
+        <label>Show rows per page:</label>
+        <select value={rowsPerPage} onChange={handleRowsPerPageChange}>
+          <option value={5}>5</option>
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+      </div>
+      {error && <p>{error}</p>}
     </div>
   );
 }
 
 export default App;
+
